@@ -11,6 +11,7 @@ class BatteryStatus(str, Enum):
 
 
 class BatteryCreate(BaseModel):
+    #organization_id: int = Field(gt=0)
     serial_number: str = Field(
         min_length=3,
         max_length=100
@@ -40,6 +41,7 @@ class BatteryCreate(BaseModel):
 
 class BatteryResponse(BaseModel):
     id: int
+    organization_id: int
     serial_number: str
     manufacturer: str
     model: str

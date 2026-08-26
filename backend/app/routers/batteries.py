@@ -12,8 +12,11 @@ from backend.app.services.battery_service import (
     create_battery,
     update_battery,
     delete_battery,
+    get_batteries_by_organization,
 )
-
+from backend.app.models.user import User
+from backend.app.utils.auth import get_current_user
+from backend.app.utils.permissions import require_roles
 
 router = APIRouter(
     prefix="/batteries",
@@ -31,21 +34,25 @@ def get_db():
 
 
 @router.get("/", response_model=list[BatteryResponse])
-def get_batteries(db: Session = Depends(get_db)):
-    return get_all_batteries(db)
+def get_batteries_endpoint(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return get_all_batteries(db,current_user)
 
 
 @router.get("/{battery_id}", response_model=BatteryResponse)
-def get_battery(
+def get_battery_endpoint(
     battery_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    battery = get_battery_by_id(db, battery_id)
+    battery = get_battery_by_id(db, battery_id,current_user)
 
     if battery is None:
         raise HTTPException(
             status_code=404,
-            detail="Battery not found"
+            detail="Battery not found",
         )
 
     return battery
@@ -54,16 +61,18 @@ def get_battery(
 @router.post("/", response_model=BatteryResponse)
 def create_battery_endpoint(
     battery: BatteryCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("Owner", "Admin","Technician",))
 ):
-    return create_battery(db, battery)
+    return create_battery(db, battery,current_user,)
 
 
 @router.put("/{battery_id}", response_model=BatteryResponse)
 def update_battery_endpoint(
     battery_id: int,
     battery: BatteryCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("Owner", "Admin","Technician",))
 ):
     updated_battery = update_battery(
         db,
@@ -74,7 +83,7 @@ def update_battery_endpoint(
     if updated_battery is None:
         raise HTTPException(
             status_code=404,
-            detail="Battery not found"
+            detail="Battery or Organization not found"
         )
 
     return updated_battery
@@ -83,7 +92,8 @@ def update_battery_endpoint(
 @router.delete("/{battery_id}")
 def delete_battery_endpoint(
     battery_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("Owner", "Admin",))
 ):
     deleted = delete_battery(
         db,
@@ -100,3 +110,12 @@ def delete_battery_endpoint(
         "message": "Battery deleted successfully",
         "battery_id": battery_id
     }
+@router.get(
+    "/organization/{organization_id}",
+    response_model=list[BatteryResponse]
+)
+def batteries_by_organization(
+    organization_id: int,
+    db: Session = Depends(get_db)
+):
+    return get_batteries_by_organization(db, organization_id)

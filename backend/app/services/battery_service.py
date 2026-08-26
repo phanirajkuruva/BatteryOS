@@ -2,27 +2,40 @@ from sqlalchemy.orm import Session
 
 from backend.app.models import Battery as BatteryModel
 from backend.app.schemas.battery import BatteryCreate
+from backend.app.models.organization import Organization
+from backend.app.models.battery import Battery
+from backend.app.models.user import User
 
 
-def get_all_batteries(db: Session):
-    return db.query(BatteryModel).all()
+def get_all_batteries(db: Session,current_user: User):
+    return db.query(Battery).filter(
+        Battery.organization_id == current_user.organization_id
+    ).all()
 
 
-def get_battery_by_id(db: Session, battery_id: int):
-    return db.query(BatteryModel).filter(
-        BatteryModel.id == battery_id
+def get_battery_by_id(db: Session, battery_id: int,current_user: User):
+    return db.query(Battery).filter(
+        Battery.id == battery_id,
+        Battery.organization_id == current_user.organization_id
     ).first()
 
 
-def create_battery(db: Session, battery: BatteryCreate):
+def create_battery(db: Session, battery: BatteryCreate,current_user: User):
+    # organization = db.query(Organization).filter(
+    #     Organization.id == battery.organization_id
+    # ).first()
+
+    # if organization is None:
+    #     return None
     new_battery = BatteryModel(
+         organization_id=current_user.organization_id,
         serial_number=battery.serial_number,
         manufacturer=battery.manufacturer,
         model=battery.model,
         chemistry=battery.chemistry,
         capacity=battery.capacity,
         voltage=battery.voltage,
-        status=battery.status,
+        status=battery.status.value,
         manufacturing_date=battery.manufacturing_date,
         installation_date=battery.installation_date
     )
@@ -37,13 +50,26 @@ def create_battery(db: Session, battery: BatteryCreate):
 def update_battery(
     db: Session,
     battery_id: int,
-    battery: BatteryCreate
+    battery: BatteryCreate,
+    current_user: User
 ):
-    existing_battery = get_battery_by_id(db, battery_id)
+        # Check whether battery exists
+    existing_battery = db.query(Battery).filter(
+        Battery.id == battery_id,
+        Battery.organization_id == current_user.organization_id,
+    ).first()
 
     if existing_battery is None:
         return None
+    #     # Check whether organization exists
+    # organization = db.query(Organization).filter(
+    #     Organization.id == battery.organization_id
+    # ).first()
 
+    # if organization is None:
+    #     return None
+
+   # existing_battery.organization_id = battery.organization_id
     existing_battery.serial_number = battery.serial_number
     existing_battery.manufacturer = battery.manufacturer
     existing_battery.model = battery.model
@@ -60,13 +86,31 @@ def update_battery(
     return existing_battery
 
 
-def delete_battery(db: Session, battery_id: int):
-    existing_battery = get_battery_by_id(db, battery_id)
+def delete_battery(
+    db: Session,
+    battery_id: int,
+    current_user: User,
+):
+    battery = (
+        db.query(Battery)
+        .filter(
+            Battery.id == battery_id,
+            Battery.organization_id == current_user.organization_id,
+        )
+        .first()
+    )
 
-    if existing_battery is None:
+    if battery is None:
         return False
 
-    db.delete(existing_battery)
+    db.delete(battery)
     db.commit()
 
     return True
+def get_batteries_by_organization(
+    db: Session,
+    organization_id: int
+):
+    return db.query(Battery).filter(
+        Battery.organization_id == organization_id
+    ).all()
