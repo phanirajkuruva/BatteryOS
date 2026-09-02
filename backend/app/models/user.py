@@ -47,3 +47,8 @@ class User(Base):
         "Organization",
         back_populates="users"
     )
+
+    inspections = relationship(
+    "Inspection",
+    back_populates="inspector",
+    )

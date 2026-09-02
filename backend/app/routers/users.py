@@ -45,6 +45,11 @@ def get_users(
         db,
         current_user,
     )
+@router.get("/me", response_model=UserResponse)
+def my_profile(
+    current_user: User = Depends(get_current_user),
+):
+    return get_my_profile(current_user)
 @router.get(
     "/{user_id}",
     response_model=UserResponse
@@ -90,11 +95,7 @@ def register_user(
 
     return new_user
 
-@router.get("/me", response_model=UserResponse)
-def my_profile(
-    current_user: User = Depends(get_current_user),
-):
-    return get_my_profile(current_user)
+
 @router.put(
     "/{user_id}/role",
     response_model=UserResponse

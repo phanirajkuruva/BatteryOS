@@ -2,7 +2,7 @@ from datetime import date
 from enum import Enum
 
 from pydantic import BaseModel, Field
-
+from backend.app.schemas.inspection import InspectionResponse
 
 class BatteryStatus(str, Enum):
     ACTIVE = "Active"
@@ -54,3 +54,10 @@ class BatteryResponse(BaseModel):
 
     class Config:
         from_attributes = True
+        
+class BatteryWithInspectionsResponse(BatteryResponse):
+    inspections: list[InspectionResponse] = []
+
+    model_config = {
+        "from_attributes": True
+    }

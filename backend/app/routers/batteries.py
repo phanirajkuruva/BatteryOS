@@ -5,6 +5,7 @@ from backend.app.database import SessionLocal
 from backend.app.schemas.battery import (
     BatteryCreate,
     BatteryResponse,
+    BatteryWithInspectionsResponse,
 )
 from backend.app.services.battery_service import (
     get_all_batteries,
@@ -13,6 +14,7 @@ from backend.app.services.battery_service import (
     update_battery,
     delete_battery,
     get_batteries_by_organization,
+    get_battery_with_history,
 )
 from backend.app.models.user import User
 from backend.app.utils.auth import get_current_user
@@ -40,6 +42,35 @@ def get_batteries_endpoint(
 ):
     return get_all_batteries(db,current_user)
 
+@router.get(
+    "/{battery_id}/history",
+    response_model=BatteryWithInspectionsResponse,
+)
+def battery_history(
+    battery_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_roles(
+            "Owner",
+            "Admin",
+            "Technician",
+            "Viewer",
+        )
+    ),
+):
+    battery = get_battery_with_history(
+        db,
+        battery_id,
+        current_user,
+    )
+
+    if battery is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Battery not found in your organization.",
+        )
+
+    return battery
 
 @router.get("/{battery_id}", response_model=BatteryResponse)
 def get_battery_endpoint(

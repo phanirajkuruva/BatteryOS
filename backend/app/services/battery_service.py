@@ -5,6 +5,7 @@ from backend.app.schemas.battery import BatteryCreate
 from backend.app.models.organization import Organization
 from backend.app.models.battery import Battery
 from backend.app.models.user import User
+from sqlalchemy.orm import joinedload
 
 
 def get_all_batteries(db: Session,current_user: User):
@@ -114,3 +115,20 @@ def get_batteries_by_organization(
     return db.query(Battery).filter(
         Battery.organization_id == organization_id
     ).all()
+
+def get_battery_with_history(
+    db: Session,
+    battery_id: int,
+    current_user: User,
+):
+    battery = (
+        db.query(Battery)
+        .options(joinedload(Battery.inspections))
+        .filter(
+            Battery.id == battery_id,
+            Battery.organization_id == current_user.organization_id,
+        )
+        .first()
+    )
+
+    return battery

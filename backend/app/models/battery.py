@@ -18,3 +18,9 @@ class Battery(Base):
     manufacturing_date = Column(Date, nullable=False)
     installation_date = Column(Date, nullable=True)
     organization=relationship("Organization",back_populates="batteries")
+
+    inspections = relationship(
+    "Inspection",
+    back_populates="battery",
+    cascade="all, delete-orphan",
+    )

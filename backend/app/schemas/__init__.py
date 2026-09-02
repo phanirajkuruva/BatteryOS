@@ -2,6 +2,7 @@ from backend.app.schemas.battery import (
     BatteryCreate,
     BatteryResponse,
     BatteryStatus,
+    BatteryWithInspectionsResponse,
 )
 
 from backend.app.schemas.organization import (
@@ -18,4 +19,8 @@ from backend.app.schemas.user import (
 from backend.app.schemas.auth import (
     LoginRequest,
     TokenResponse,
+)
+from backend.app.schemas.inspection import (
+    InspectionCreate,
+    InspectionResponse,
 )
