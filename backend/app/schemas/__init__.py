@@ -24,3 +24,10 @@ from backend.app.schemas.inspection import (
     InspectionCreate,
     InspectionResponse,
 )
+from backend.app.schemas.dashboard import (
+    DashboardSummaryResponse,
+    HealthTrendItem,
+    RecentInspectionItem,
+    CriticalBatteryItem,
+)
+from backend.app.schemas.attachment import AttachmentResponse

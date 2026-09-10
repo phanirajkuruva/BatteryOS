@@ -46,3 +46,9 @@ class Inspection(Base):
         "User",
         back_populates="inspections",
     )
+
+    attachments = relationship(
+    "Attachment",
+    back_populates="inspection",
+    cascade="all, delete",
+)

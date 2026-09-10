@@ -52,3 +52,7 @@ class User(Base):
     "Inspection",
     back_populates="inspector",
     )
+    attachments = relationship(
+    "Attachment",
+    back_populates="uploader",
+)

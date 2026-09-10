@@ -6,7 +6,12 @@ from backend.app.routers.users import router as user_router
 from backend.app.routers.auth import router as auth_router
 from backend.app.routers.profile import router as profile_router
 from backend.app.routers.inspections import router as inspection_router
-
+from backend.app.routers.dashboard import router as dashboard_router
+from backend.app.routers.certificates import (
+    router as certificate_router,
+)
+from backend.app.routers.attachment import router as attachment_router
+from fastapi.staticfiles import StaticFiles
 app = FastAPI()
 
 
@@ -30,3 +35,11 @@ app.include_router(user_router)
 app.include_router(auth_router)
 app.include_router(profile_router)
 app.include_router(inspection_router)
+app.include_router(dashboard_router)
+app.include_router(certificate_router)
+app.include_router(attachment_router)
+app.mount(
+    "/uploads",
+    StaticFiles(directory="backend/uploads"),
+    name="uploads",
+)

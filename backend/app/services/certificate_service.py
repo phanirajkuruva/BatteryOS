@@ -1,0 +1,254 @@
+import os
+
+from reportlab.lib.colors import green, orange, red
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
+from sqlalchemy.orm import Session
+
+from backend.app.models.battery import Battery
+from backend.app.models.inspection import Inspection
+from backend.app.models.organization import Organization
+from backend.app.models.user import User
+from backend.app.utils.qr_generator import generate_qr_code
+
+CERTIFICATE_FOLDER = "backend/certificates"
+
+
+def generate_certificate(
+    db: Session,
+    inspection_id: int,
+    current_user: User,
+):
+    inspection = (
+        db.query(Inspection)
+        .join(Battery)
+        .filter(
+            Inspection.id == inspection_id,
+            Battery.organization_id == current_user.organization_id,
+        )
+        .first()
+    )
+
+    if inspection is None:
+        return None
+
+    battery = (
+        db.query(Battery)
+        .filter(Battery.id == inspection.battery_id)
+        .first()
+    )
+
+    organization = (
+        db.query(Organization)
+        .filter(Organization.id == battery.organization_id)
+        .first()
+    )
+
+    inspector = (
+        db.query(User)
+        .filter(User.id == inspection.inspector_id)
+        .first()
+    )
+
+    os.makedirs(CERTIFICATE_FOLDER, exist_ok=True)
+
+    qr_path = generate_qr_code(inspection_id)
+
+    pdf_path = (
+        f"{CERTIFICATE_FOLDER}/battery_certificate_{inspection_id}.pdf"
+    )
+
+    pdf = canvas.Canvas(pdf_path, pagesize=A4)
+
+    width, height = A4
+
+    # ---------- HEADER ----------
+    pdf.setFont("Helvetica-Bold", 20)
+    pdf.drawString(160, height - 60, "BatteryOS")
+
+    pdf.setFont("Helvetica", 13)
+    pdf.drawString(120, height - 80, "Battery Health Inspection Certificate")
+
+    pdf.line(50, height - 95, width - 50, height - 95)
+
+    # ---------- ORGANIZATION ----------
+    pdf.setFont("Helvetica-Bold", 14)
+    pdf.drawString(50, height - 130, "Organization")
+
+    pdf.setFont("Helvetica", 12)
+    pdf.drawString(70, height - 150, organization.name)
+    pdf.drawString(70, height - 168, organization.email)
+    pdf.drawString(70, height - 186, organization.phone)
+
+    # ---------- BATTERY DETAILS ----------
+    pdf.setFont("Helvetica-Bold", 14)
+    pdf.drawString(50, height - 220, "Battery Details")
+
+    pdf.setFont("Helvetica", 12)
+
+    pdf.drawString(70, height - 240, f"Serial Number : {battery.serial_number}")
+    pdf.drawString(70, height - 258, f"Manufacturer : {battery.manufacturer}")
+    pdf.drawString(70, height - 276, f"Status : {battery.status}")
+
+    # ---------- INSPECTION DETAILS ----------
+    pdf.setFont("Helvetica-Bold", 14)
+    pdf.drawString(50, height - 315, "Inspection Details")
+
+    pdf.setFont("Helvetica", 12)
+
+    pdf.drawString(
+        70,
+        height - 335,
+        f"Inspection Date : {inspection.inspection_date}",
+    )
+
+    pdf.drawString(
+        70,
+        height - 353,
+        f"Inspector : {inspector.full_name}",
+    )
+
+    pdf.drawString(
+        70,
+        height - 371,
+        f"Voltage : {inspection.voltage} V",
+    )
+
+    pdf.drawString(
+        70,
+        height - 389,
+        f"Temperature : {inspection.temperature} °C",
+    )
+
+    pdf.drawString(
+        70,
+        height - 407,
+        f"Cycle Count : {inspection.cycle_count}",
+    )
+
+    # ---------- HEALTH STATUS ----------
+    pdf.setFont("Helvetica-Bold", 14)
+    pdf.drawString(50, height - 445, "Battery Health")
+
+    pdf.setFont("Helvetica-Bold", 20)
+
+    if inspection.health_status == "Excellent":
+        pdf.setFillColor(green)
+
+    elif inspection.health_status == "Warning":
+        pdf.setFillColor(orange)
+
+    elif inspection.health_status == "Critical":
+        pdf.setFillColor(red)
+
+    else:
+        pdf.setFillColor(green)
+
+    pdf.drawString(
+        70,
+        height - 475,
+        f"{inspection.health_status} ({inspection.health_score})",
+    )
+
+    pdf.setFillColorRGB(0, 0, 0)
+
+    # ---------- REMARKS ----------
+    pdf.setFont("Helvetica-Bold", 14)
+    pdf.drawString(50, height - 515, "Remarks")
+
+    pdf.setFont("Helvetica", 12)
+
+    pdf.drawString(
+        70,
+        height - 535,
+        inspection.remarks or "No remarks provided.",
+    )
+
+    # ---------- QR CODE ----------
+    pdf.setFont("Helvetica-Bold", 13)
+    pdf.drawString(370, height - 220, "Verify Certificate")
+
+    pdf.drawImage(
+        qr_path,
+        370,
+        height - 380,
+        width=120,
+        height=120,
+    )
+
+    pdf.setFont("Helvetica", 9)
+
+    pdf.drawString(
+        330,
+        height - 395,
+        "Scan QR to verify authenticity.",
+    )
+
+    # ---------- FOOTER ----------
+    pdf.line(50, 70, width - 50, 70)
+
+    pdf.setFont("Helvetica", 10)
+
+    pdf.drawString(
+        50,
+        50,
+        f"Certificate ID : INS-{inspection.id}",
+    )
+
+    pdf.drawString(
+        260,
+        50,
+        f"Generated by BatteryOS",
+    )
+
+    pdf.save()
+
+    return pdf_path
+
+def verify_certificate(
+    db: Session,
+    inspection_id: int,
+):
+    inspection = (
+        db.query(Inspection)
+        .join(Battery)
+        .join(User)
+        .join(Organization)
+        .filter(
+            Inspection.id == inspection_id,
+        )
+        .first()
+    )
+
+    if inspection is None:
+        return None
+
+    battery = (
+        db.query(Battery)
+        .filter(Battery.id == inspection.battery_id)
+        .first()
+    )
+
+    organization = (
+        db.query(Organization)
+        .filter(Organization.id == battery.organization_id)
+        .first()
+    )
+
+    inspector = (
+        db.query(User)
+        .filter(User.id == inspection.inspector_id)
+        .first()
+    )
+
+    return {
+        "certificate_valid": True,
+        "inspection_id": inspection.id,
+        "organization": organization.name,
+        "battery_serial": battery.serial_number,
+        "manufacturer": battery.manufacturer,
+        "inspection_date": inspection.inspection_date,
+        "inspector": inspector.full_name,
+        "health_score": inspection.health_score,
+        "health_status": inspection.health_status,
+    }
