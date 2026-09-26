@@ -12,6 +12,8 @@ from backend.app.routers.certificates import (
 )
 from backend.app.routers.attachment import router as attachment_router
 from fastapi.staticfiles import StaticFiles
+from backend.app.routers.maintenance import router as maintenance_router
+from backend.app.routers.alerts import router as alert_router
 app = FastAPI()
 
 
@@ -43,3 +45,5 @@ app.mount(
     StaticFiles(directory="backend/uploads"),
     name="uploads",
 )
+app.include_router(maintenance_router)
+app.include_router(alert_router)

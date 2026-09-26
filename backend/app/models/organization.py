@@ -25,3 +25,8 @@ class Organization(Base):
 
     batteries=relationship("Battery",back_populates="organization")
     users=relationship("User",back_populates="organization")
+    alerts = relationship(
+    "Alert",
+    back_populates="organization",
+    cascade="all, delete-orphan",
+    )

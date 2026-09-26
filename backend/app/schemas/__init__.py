@@ -3,6 +3,10 @@ from backend.app.schemas.battery import (
     BatteryResponse,
     BatteryStatus,
     BatteryWithInspectionsResponse,
+    BatteryLifecycleUpdate,
+    BatteryDashboardSummaryResponse,
+    WarrantySummaryResponse,
+    LifecycleSummaryResponse,
 )
 
 from backend.app.schemas.organization import (
@@ -31,3 +35,17 @@ from backend.app.schemas.dashboard import (
     CriticalBatteryItem,
 )
 from backend.app.schemas.attachment import AttachmentResponse
+from backend.app.schemas.maintenance import (
+    MaintenanceCreate,
+    MaintenanceUpdate,
+    MaintenanceResponse,
+    MaintenanceStatusUpdate,
+    MaintenanceSummaryResponse,
+    CostSummaryResponse,
+    BatteryCostResponse,
+)
+from backend.app.schemas.alert import (
+    AlertResponse,
+    AlertReadUpdate,
+    AlertDashboardSummaryResponse,
+)

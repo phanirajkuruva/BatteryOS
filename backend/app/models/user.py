@@ -55,4 +55,8 @@ class User(Base):
     attachments = relationship(
     "Attachment",
     back_populates="uploader",
-)
+    )
+    maintenance_records = relationship(
+    "Maintenance",
+    back_populates="technician",
+)   
