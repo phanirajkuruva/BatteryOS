@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from backend.app.database import SessionLocal
+from backend.app.database import get_db
 from backend.app.schemas.alert import (
     AlertResponse,
     AlertDashboardSummaryResponse,
@@ -21,13 +21,6 @@ router = APIRouter(
     prefix="/alerts",
     tags=["Alerts"],
 )
-def get_db():
-    db = SessionLocal()
-
-    try:
-        yield db
-    finally:
-        db.close()
 
 @router.get("/",response_model=list[AlertResponse],)
 def get_alerts(

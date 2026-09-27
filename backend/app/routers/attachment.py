@@ -9,7 +9,7 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
-from backend.app.database import SessionLocal
+from backend.app.database import get_db
 from backend.app.models.attachment import Attachment
 from backend.app.models.inspection import Inspection
 from backend.app.models.battery import Battery
@@ -27,13 +27,6 @@ router = APIRouter(
     tags=["Attachments"],
 )
 
-def get_db():
-    db = SessionLocal()
-
-    try:
-        yield db
-    finally:
-        db.close()
 # ----------------------------------------------------
 # Upload attachment to an inspection
 # ----------------------------------------------------

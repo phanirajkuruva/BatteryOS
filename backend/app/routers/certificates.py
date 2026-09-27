@@ -2,8 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException,status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-#from backend.app.database import get_db
-from backend.app.database import SessionLocal
+from backend.app.database import get_db
 from backend.app.models.user import User
 from backend.app.schemas.certificate import (
     CertificateCreate,
@@ -24,13 +23,6 @@ router = APIRouter(
     prefix="/certificates",
     tags=["Certificates"],
 )
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
 
 # @router.get("/inspection/{inspection_id}")
 # def download_certificate(

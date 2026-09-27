@@ -7,7 +7,7 @@ from backend.app.services.organization_service import (
     get_my_organization,
 )
 
-from backend.app.database import SessionLocal
+from backend.app.database import get_db
 from backend.app.schemas.organization import (
     OrganizationCreate,
     OrganizationResponse
@@ -23,13 +23,6 @@ router = APIRouter(
     tags=["Organizations"]
 )
 
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 @router.get("/", response_model=list[OrganizationResponse])

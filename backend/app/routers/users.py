@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from backend.app.database import SessionLocal
+from backend.app.database import get_db
 from backend.app.schemas.user import (
     UserCreate,
     UserResponse,
@@ -23,13 +23,6 @@ from backend.app.services.user_service import (
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 @router.get(
     "/",

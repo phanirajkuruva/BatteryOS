@@ -6,7 +6,7 @@ from fastapi import (
 from sqlalchemy.orm import Session
 from fastapi.responses import FileResponse
 
-from backend.app.database import SessionLocal
+from backend.app.database import get_db
 from backend.app.models.user import User
 from backend.app.schemas.report import BatteryHealthReportResponse
 from backend.app.services.report_service import (
@@ -20,13 +20,6 @@ router = APIRouter(
     prefix="/reports",
     tags=["Reports"],
 )
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 @router.get("/batteries/{battery_id}/health",response_model=BatteryHealthReportResponse,)
 def get_battery_health_report(
