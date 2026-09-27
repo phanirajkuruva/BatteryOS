@@ -5,12 +5,14 @@ from backend.app.database import SessionLocal
 from backend.app.schemas.alert import (
     AlertResponse,
     AlertDashboardSummaryResponse,
+    AlertScanResponse,
 )
 from backend.app.services.alert_service import (
     get_all_alerts,
     get_unread_alerts,
     mark_alert_as_read,
     get_alert_dashboard_summary,
+    run_alert_scan,
 )
 from backend.app.utils.permissions import require_roles
 from backend.app.models.user import User
@@ -105,4 +107,18 @@ def dashboard_summary(
     return get_alert_dashboard_summary(
         db,
         current_user,
+    )
+@router.post("/scan", response_model=AlertScanResponse,)
+def scan_alerts(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_roles(
+            "Owner",
+            "Admin",
+        )
+    ),
+):
+    return run_alert_scan(
+        db=db,
+        current_user=current_user,
     )

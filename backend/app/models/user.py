@@ -59,4 +59,8 @@ class User(Base):
     maintenance_records = relationship(
     "Maintenance",
     back_populates="technician",
-)   
+    )   
+    certificates = relationship(
+    "Certificate",
+    back_populates="issuer",
+    )

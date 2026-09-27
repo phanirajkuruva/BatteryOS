@@ -49,3 +49,8 @@ from backend.app.schemas.alert import (
     AlertReadUpdate,
     AlertDashboardSummaryResponse,
 )
+from backend.app.schemas.report import (
+    ReportInspectionResponse,
+    ReportMaintenanceResponse,
+    BatteryHealthReportResponse,
+)

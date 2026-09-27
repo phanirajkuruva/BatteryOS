@@ -46,4 +46,9 @@ class Battery(Base):
     "Alert",
     back_populates="battery",
     cascade="all, delete-orphan",
-)
+    )
+    certificates = relationship(
+    "Certificate",
+    back_populates="battery",
+    cascade="all, delete-orphan",
+    )

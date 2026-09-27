@@ -46,3 +46,7 @@ class AlertDashboardSummaryResponse(BaseModel):
     unread_alerts: int
     critical_alerts: int
     high_alerts: int
+class AlertScanResponse(BaseModel):
+    warranty_alerts_created: int
+    maintenance_alerts_created: int
+    total_alerts_created: int

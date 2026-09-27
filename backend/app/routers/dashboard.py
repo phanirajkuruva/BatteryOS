@@ -9,12 +9,18 @@ from backend.app.schemas.dashboard import (
     HealthTrendItem,
     RecentInspectionItem,
     CriticalBatteryItem,
+    UpcomingMaintenanceItem,
+    WarrantyExpiringItem,
+    RecentAlertItem,
 )
 from backend.app.services.dashboard_service import( 
     get_dashboard_summary,
     get_health_trend,
     get_recent_inspections,
-    get_critical_batteries
+    get_critical_batteries,
+    get_upcoming_maintenance,
+    get_expiring_warranties,
+    get_recent_alerts
 )
 from backend.app.utils.permissions import require_roles
 
@@ -98,3 +104,51 @@ def critical_batteries(
     ),
 ):
     return get_critical_batteries(db, current_user)
+@router.get("/upcoming-maintenance",response_model=list[UpcomingMaintenanceItem],)
+def upcoming_maintenance(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_roles(
+            "Owner",
+            "Admin",
+            "Technician",
+            "Viewer",
+        )
+    ),
+):
+    return get_upcoming_maintenance(
+        db,
+        current_user,
+    )
+@router.get("/warranty-expiring",response_model=list[WarrantyExpiringItem],)
+def warranty_expiring(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_roles(
+            "Owner",
+            "Admin",
+            "Technician",
+            "Viewer",
+        )
+    ),
+):
+    return get_expiring_warranties(
+        db,
+        current_user,
+    )
+@router.get("/recent-alerts",response_model=list[RecentAlertItem],)
+def recent_alerts(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_roles(
+            "Owner",
+            "Admin",
+            "Technician",
+            "Viewer",
+        )
+    ),
+):
+    return get_recent_alerts(
+        db,
+        current_user,
+    )

@@ -1,24 +1,47 @@
 import os
 
+from datetime import date
+from uuid import uuid4
+
 from reportlab.lib.colors import green, orange, red
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from sqlalchemy.orm import Session
 
 from backend.app.models.battery import Battery
+from backend.app.models.certificate import Certificate
 from backend.app.models.inspection import Inspection
 from backend.app.models.organization import Organization
 from backend.app.models.user import User
 from backend.app.utils.qr_generator import generate_qr_code
 
+
 CERTIFICATE_FOLDER = "backend/certificates"
 
+def generate_certificate_number() -> str:
+    """
+    Generate a unique certificate number.
 
-def generate_certificate(
+    Example:
+    BATCERT-A1B2C3D4E5F6
+    """
+
+    unique_part = uuid4().hex[:12].upper()
+
+    return f"BATCERT-{unique_part}"
+
+def create_certificate(
     db: Session,
     inspection_id: int,
     current_user: User,
 ):
+    """
+    Create a certificate record for an inspection.
+
+    Only inspections belonging to the logged-in user's
+    organization can be certified.
+    """
+
     inspection = (
         db.query(Inspection)
         .join(Battery)
@@ -32,105 +55,446 @@ def generate_certificate(
     if inspection is None:
         return None
 
-    battery = (
-        db.query(Battery)
-        .filter(Battery.id == inspection.battery_id)
+    # Check whether a valid certificate already exists
+    # for this inspection.
+    existing_certificate = (
+        db.query(Certificate)
+        .filter(
+            Certificate.inspection_id == inspection.id,
+            Certificate.organization_id == current_user.organization_id,
+            Certificate.status == "Valid",
+        )
         .first()
     )
+
+    if existing_certificate is not None:
+        return existing_certificate
+
+    certificate = Certificate(
+        organization_id=current_user.organization_id,
+        battery_id=inspection.battery_id,
+        inspection_id=inspection.id,
+        issued_by=current_user.id,
+        certificate_number=generate_certificate_number(),
+        issue_date=date.today(),
+        status="Valid",
+    )
+
+    db.add(certificate)
+    db.commit()
+    db.refresh(certificate)
+
+    return certificate
+def get_certificate_by_id(
+    db: Session,
+    certificate_id: int,
+    current_user: User,
+):
+    """
+    Get one certificate belonging to the current user's organization.
+    """
+
+    return (
+        db.query(Certificate)
+        .filter(
+            Certificate.id == certificate_id,
+            Certificate.organization_id == current_user.organization_id,
+        )
+        .first()
+    )
+def get_battery_certificates(
+    db: Session,
+    battery_id: int,
+    current_user: User,
+):
+    """
+    Return certificate history for a battery.
+    """
+
+    battery = (
+        db.query(Battery)
+        .filter(
+            Battery.id == battery_id,
+            Battery.organization_id == current_user.organization_id,
+        )
+        .first()
+    )
+
+    if battery is None:
+        return None
+
+    certificates = (
+        db.query(Certificate)
+        .filter(
+            Certificate.battery_id == battery.id,
+            Certificate.organization_id == current_user.organization_id,
+        )
+        .order_by(
+            Certificate.created_at.desc(),
+            Certificate.id.desc(),
+        )
+        .all()
+    )
+
+    return certificates
+def revoke_certificate(
+    db: Session,
+    certificate_id: int,
+    current_user: User,
+):
+    """
+    Revoke a certificate belonging to the current user's organization.
+    """
+
+    certificate = (
+        db.query(Certificate)
+        .filter(
+            Certificate.id == certificate_id,
+            Certificate.organization_id == current_user.organization_id,
+        )
+        .first()
+    )
+
+    if certificate is None:
+        return None
+
+    if certificate.status == "Revoked":
+        return certificate
+
+    certificate.status = "Revoked"
+
+    db.commit()
+    db.refresh(certificate)
+
+    return certificate
+
+def generate_certificate_pdf(
+    db: Session,
+    certificate_id: int,
+    current_user: User,
+):
+    """
+    Generate a PDF for an existing certificate.
+
+    The certificate must belong to the logged-in user's organization.
+    """
+
+    certificate = (
+        db.query(Certificate)
+        .filter(
+            Certificate.id == certificate_id,
+            Certificate.organization_id == current_user.organization_id,
+        )
+        .first()
+    )
+
+    if certificate is None:
+        return None
+
+    inspection = (
+        db.query(Inspection)
+        .filter(
+            Inspection.id == certificate.inspection_id,
+        )
+        .first()
+    )
+
+    if inspection is None:
+        return None
+
+    battery = (
+        db.query(Battery)
+        .filter(
+            Battery.id == certificate.battery_id,
+        )
+        .first()
+    )
+
+    if battery is None:
+        return None
 
     organization = (
         db.query(Organization)
-        .filter(Organization.id == battery.organization_id)
+        .filter(
+            Organization.id == certificate.organization_id,
+        )
         .first()
     )
+
+    if organization is None:
+        return None
 
     inspector = (
         db.query(User)
-        .filter(User.id == inspection.inspector_id)
+        .filter(
+            User.id == inspection.inspector_id,
+        )
         .first()
     )
 
-    os.makedirs(CERTIFICATE_FOLDER, exist_ok=True)
+    if inspector is None:
+        return None
 
-    qr_path = generate_qr_code(inspection_id)
-
-    pdf_path = (
-        f"{CERTIFICATE_FOLDER}/battery_certificate_{inspection_id}.pdf"
+    os.makedirs(
+        CERTIFICATE_FOLDER,
+        exist_ok=True,
     )
 
-    pdf = canvas.Canvas(pdf_path, pagesize=A4)
+    # QR now represents the real certificate,
+    # not just the inspection.
+    qr_path = generate_qr_code(
+        certificate.certificate_number
+    )
+
+    pdf_path = (
+        f"{CERTIFICATE_FOLDER}/"
+        f"{certificate.certificate_number}.pdf"
+    )
+
+    pdf = canvas.Canvas(
+        pdf_path,
+        pagesize=A4,
+    )
 
     width, height = A4
 
-    # ---------- HEADER ----------
-    pdf.setFont("Helvetica-Bold", 20)
-    pdf.drawString(160, height - 60, "BatteryOS")
+    # -------------------------------------------------
+    # HEADER
+    # -------------------------------------------------
 
-    pdf.setFont("Helvetica", 13)
-    pdf.drawString(120, height - 80, "Battery Health Inspection Certificate")
+    pdf.setFont(
+        "Helvetica-Bold",
+        20,
+    )
 
-    pdf.line(50, height - 95, width - 50, height - 95)
+    pdf.drawCentredString(
+        width / 2,
+        height - 60,
+        "BatteryOS",
+    )
 
-    # ---------- ORGANIZATION ----------
-    pdf.setFont("Helvetica-Bold", 14)
-    pdf.drawString(50, height - 130, "Organization")
+    pdf.setFont(
+        "Helvetica",
+        13,
+    )
 
-    pdf.setFont("Helvetica", 12)
-    pdf.drawString(70, height - 150, organization.name)
-    pdf.drawString(70, height - 168, organization.email)
-    pdf.drawString(70, height - 186, organization.phone)
+    pdf.drawCentredString(
+        width / 2,
+        height - 82,
+        "Battery Health Inspection Certificate",
+    )
 
-    # ---------- BATTERY DETAILS ----------
-    pdf.setFont("Helvetica-Bold", 14)
-    pdf.drawString(50, height - 220, "Battery Details")
+    pdf.line(
+        50,
+        height - 100,
+        width - 50,
+        height - 100,
+    )
 
-    pdf.setFont("Helvetica", 12)
+    # -------------------------------------------------
+    # CERTIFICATE DETAILS
+    # -------------------------------------------------
 
-    pdf.drawString(70, height - 240, f"Serial Number : {battery.serial_number}")
-    pdf.drawString(70, height - 258, f"Manufacturer : {battery.manufacturer}")
-    pdf.drawString(70, height - 276, f"Status : {battery.status}")
-
-    # ---------- INSPECTION DETAILS ----------
-    pdf.setFont("Helvetica-Bold", 14)
-    pdf.drawString(50, height - 315, "Inspection Details")
-
-    pdf.setFont("Helvetica", 12)
+    pdf.setFont(
+        "Helvetica-Bold",
+        14,
+    )
 
     pdf.drawString(
-        70,
-        height - 335,
-        f"Inspection Date : {inspection.inspection_date}",
+        50,
+        height - 130,
+        "Certificate Details",
+    )
+
+    pdf.setFont(
+        "Helvetica",
+        11,
     )
 
     pdf.drawString(
         70,
-        height - 353,
-        f"Inspector : {inspector.full_name}",
+        height - 150,
+        f"Certificate Number: {certificate.certificate_number}",
     )
 
     pdf.drawString(
         70,
-        height - 371,
-        f"Voltage : {inspection.voltage} V",
+        height - 168,
+        f"Issue Date: {certificate.issue_date}",
     )
 
     pdf.drawString(
         70,
-        height - 389,
-        f"Temperature : {inspection.temperature} °C",
+        height - 186,
+        f"Certificate Status: {certificate.status}",
+    )
+
+    # -------------------------------------------------
+    # ORGANIZATION
+    # -------------------------------------------------
+
+    pdf.setFont(
+        "Helvetica-Bold",
+        14,
+    )
+
+    pdf.drawString(
+        50,
+        height - 220,
+        "Organization",
+    )
+
+    pdf.setFont(
+        "Helvetica",
+        11,
     )
 
     pdf.drawString(
         70,
-        height - 407,
-        f"Cycle Count : {inspection.cycle_count}",
+        height - 240,
+        f"Name: {organization.name}",
     )
 
-    # ---------- HEALTH STATUS ----------
-    pdf.setFont("Helvetica-Bold", 14)
-    pdf.drawString(50, height - 445, "Battery Health")
+    # Organization fields can be nullable.
+    if organization.email:
+        pdf.drawString(
+            70,
+            height - 258,
+            f"Email: {organization.email}",
+        )
 
-    pdf.setFont("Helvetica-Bold", 20)
+    if organization.phone:
+        pdf.drawString(
+            70,
+            height - 276,
+            f"Phone: {organization.phone}",
+        )
+
+    # -------------------------------------------------
+    # BATTERY DETAILS
+    # -------------------------------------------------
+
+    pdf.setFont(
+        "Helvetica-Bold",
+        14,
+    )
+
+    pdf.drawString(
+        50,
+        height - 310,
+        "Battery Details",
+    )
+
+    pdf.setFont(
+        "Helvetica",
+        11,
+    )
+
+    pdf.drawString(
+        70,
+        height - 330,
+        f"Serial Number: {battery.serial_number}",
+    )
+
+    pdf.drawString(
+        70,
+        height - 348,
+        f"Manufacturer: {battery.manufacturer}",
+    )
+
+    pdf.drawString(
+        70,
+        height - 366,
+        f"Model: {battery.model}",
+    )
+
+    pdf.drawString(
+        70,
+        height - 384,
+        f"Chemistry: {battery.chemistry}",
+    )
+
+    pdf.drawString(
+        70,
+        height - 402,
+        f"Lifecycle Status: {battery.lifecycle_status}",
+    )
+
+    # -------------------------------------------------
+    # INSPECTION DETAILS
+    # -------------------------------------------------
+
+    pdf.setFont(
+        "Helvetica-Bold",
+        14,
+    )
+
+    pdf.drawString(
+        50,
+        height - 440,
+        "Inspection Details",
+    )
+
+    pdf.setFont(
+        "Helvetica",
+        11,
+    )
+
+    pdf.drawString(
+        70,
+        height - 460,
+        f"Inspection ID: {inspection.id}",
+    )
+
+    pdf.drawString(
+        70,
+        height - 478,
+        f"Inspection Date: {inspection.inspection_date}",
+    )
+
+    pdf.drawString(
+        70,
+        height - 496,
+        f"Inspector: {inspector.full_name}",
+    )
+
+    pdf.drawString(
+        70,
+        height - 514,
+        f"Voltage: {inspection.voltage} V",
+    )
+
+    pdf.drawString(
+        70,
+        height - 532,
+        f"Temperature: {inspection.temperature} C",
+    )
+
+    pdf.drawString(
+        70,
+        height - 550,
+        f"Cycle Count: {inspection.cycle_count}",
+    )
+
+    # -------------------------------------------------
+    # HEALTH
+    # -------------------------------------------------
+
+    pdf.setFont(
+        "Helvetica-Bold",
+        14,
+    )
+
+    pdf.drawString(
+        50,
+        height - 590,
+        "Battery Health",
+    )
+
+    pdf.setFont(
+        "Helvetica-Bold",
+        18,
+    )
 
     if inspection.health_status == "Excellent":
         pdf.setFillColor(green)
@@ -142,63 +506,109 @@ def generate_certificate(
         pdf.setFillColor(red)
 
     else:
-        pdf.setFillColor(green)
+        pdf.setFillColorRGB(0, 0, 0)
 
     pdf.drawString(
         70,
-        height - 475,
-        f"{inspection.health_status} ({inspection.health_score})",
+        height - 615,
+        (
+            f"{inspection.health_status} "
+            f"({inspection.health_score})"
+        ),
     )
 
-    pdf.setFillColorRGB(0, 0, 0)
+    pdf.setFillColorRGB(
+        0,
+        0,
+        0,
+    )
 
-    # ---------- REMARKS ----------
-    pdf.setFont("Helvetica-Bold", 14)
-    pdf.drawString(50, height - 515, "Remarks")
+    # -------------------------------------------------
+    # QR CODE
+    # -------------------------------------------------
 
-    pdf.setFont("Helvetica", 12)
+    pdf.setFont(
+        "Helvetica-Bold",
+        12,
+    )
 
     pdf.drawString(
-        70,
-        height - 535,
-        inspection.remarks or "No remarks provided.",
+        390,
+        height - 440,
+        "Verify Certificate",
     )
-
-    # ---------- QR CODE ----------
-    pdf.setFont("Helvetica-Bold", 13)
-    pdf.drawString(370, height - 220, "Verify Certificate")
 
     pdf.drawImage(
         qr_path,
-        370,
-        height - 380,
-        width=120,
-        height=120,
+        390,
+        height - 575,
+        width=110,
+        height=110,
     )
 
-    pdf.setFont("Helvetica", 9)
+    pdf.setFont(
+        "Helvetica",
+        8,
+    )
 
     pdf.drawString(
-        330,
-        height - 395,
+        385,
+        height - 590,
         "Scan QR to verify authenticity.",
     )
 
-    # ---------- FOOTER ----------
-    pdf.line(50, 70, width - 50, 70)
+    # -------------------------------------------------
+    # REMARKS
+    # -------------------------------------------------
 
-    pdf.setFont("Helvetica", 10)
-
-    pdf.drawString(
-        50,
-        50,
-        f"Certificate ID : INS-{inspection.id}",
+    pdf.setFont(
+        "Helvetica-Bold",
+        13,
     )
 
     pdf.drawString(
-        260,
         50,
-        f"Generated by BatteryOS",
+        height - 655,
+        "Remarks",
+    )
+
+    pdf.setFont(
+        "Helvetica",
+        10,
+    )
+
+    pdf.drawString(
+        70,
+        height - 675,
+        inspection.remarks or "No remarks provided.",
+    )
+
+    # -------------------------------------------------
+    # FOOTER
+    # -------------------------------------------------
+
+    pdf.line(
+        50,
+        70,
+        width - 50,
+        70,
+    )
+
+    pdf.setFont(
+        "Helvetica",
+        9,
+    )
+
+    pdf.drawString(
+        50,
+        50,
+        f"Certificate: {certificate.certificate_number}",
+    )
+
+    pdf.drawRightString(
+        width - 50,
+        50,
+        "Generated by BatteryOS",
     )
 
     pdf.save()
@@ -207,46 +617,65 @@ def generate_certificate(
 
 def verify_certificate(
     db: Session,
-    inspection_id: int,
+    certificate_number: str,
 ):
-    inspection = (
-        db.query(Inspection)
-        .join(Battery)
-        .join(User)
-        .join(Organization)
+    """
+    Publicly verify a certificate using its unique certificate number.
+    """
+
+    certificate = (
+        db.query(Certificate)
         .filter(
-            Inspection.id == inspection_id,
+            Certificate.certificate_number == certificate_number,
         )
         .first()
     )
 
-    if inspection is None:
+    if certificate is None:
         return None
+
+    inspection = (
+        db.query(Inspection)
+        .filter(
+            Inspection.id == certificate.inspection_id,
+        )
+        .first()
+    )
 
     battery = (
         db.query(Battery)
-        .filter(Battery.id == inspection.battery_id)
+        .filter(
+            Battery.id == certificate.battery_id,
+        )
         .first()
     )
 
     organization = (
         db.query(Organization)
-        .filter(Organization.id == battery.organization_id)
+        .filter(
+            Organization.id == certificate.organization_id,
+        )
         .first()
     )
 
     inspector = (
         db.query(User)
-        .filter(User.id == inspection.inspector_id)
+        .filter(
+            User.id == inspection.inspector_id,
+        )
         .first()
     )
 
     return {
-        "certificate_valid": True,
-        "inspection_id": inspection.id,
+        "certificate_valid": certificate.status == "Valid",
+        "certificate_number": certificate.certificate_number,
+        "certificate_status": certificate.status,
+        "issue_date": certificate.issue_date,
         "organization": organization.name,
         "battery_serial": battery.serial_number,
         "manufacturer": battery.manufacturer,
+        "model": battery.model,
+        "inspection_id": inspection.id,
         "inspection_date": inspection.inspection_date,
         "inspector": inspector.full_name,
         "health_score": inspection.health_score,

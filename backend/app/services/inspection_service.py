@@ -3,8 +3,8 @@ from sqlalchemy.orm import Session
 from backend.app.models.battery import Battery
 from backend.app.models.inspection import Inspection
 from backend.app.models.user import User
-from backend.app.utils.health_engine import calculate_health_score
-
+from backend.app.utils.health_engine import calculate_health_score, calculate_health_status
+from backend.app.services.alert_service import generate_alerts_from_inspection
 
 
 def create_inspection(
@@ -30,11 +30,12 @@ def create_inspection(
     if battery is None:
         return None
     
-    health_score, health_status = calculate_health_score(
+    health_score = calculate_health_score(
     inspection.voltage,
     inspection.temperature,
     inspection.cycle_count,
-)
+    )
+    health_status = calculate_health_status(health_score)
     new_inspection = Inspection(
         battery_id=inspection.battery_id,
         inspector_id=current_user.id,
@@ -51,6 +52,11 @@ def create_inspection(
     db.commit()
     db.refresh(new_inspection)
 
+    # Generate automatic alerts
+    generate_alerts_from_inspection(
+    db=db,
+    inspection=new_inspection,
+    )
     return new_inspection
 
 def get_all_inspections(
@@ -127,6 +133,7 @@ def update_inspection(
     inspection.temperature,
     inspection.cycle_count,
 )
+    health_status = calculate_health_status(health_score)
     
     existing_inspection.inspection_date = inspection.inspection_date
     existing_inspection.health_score = health_score

@@ -30,3 +30,8 @@ class Organization(Base):
     back_populates="organization",
     cascade="all, delete-orphan",
     )
+    certificates = relationship(
+    "Certificate",
+    back_populates="organization",
+    cascade="all, delete-orphan",
+    )

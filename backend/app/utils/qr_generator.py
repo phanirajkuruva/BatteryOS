@@ -1,32 +1,33 @@
 import os
+
 import qrcode
 
 
-CERTIFICATE_FOLDER = "backend/certificates"
+QR_FOLDER = "backend/qr_codes"
 
 
-def generate_qr_code(inspection_id: int):
-    os.makedirs(CERTIFICATE_FOLDER, exist_ok=True)
+def generate_qr_code(
+    certificate_number: str,
+):
+    os.makedirs(
+        QR_FOLDER,
+        exist_ok=True,
+    )
 
     verification_url = (
-        f"http://127.0.0.1:8000/certificates/verify/{inspection_id}"
+        "http://127.0.0.1:8000/"
+        f"certificates/verify/{certificate_number}"
     )
 
-    qr = qrcode.QRCode(
-        version=1,
-        box_size=8,
-        border=3,
+    qr = qrcode.make(
+        verification_url
     )
-
-    qr.add_data(verification_url)
-    qr.make(fit=True)
-
-    image = qr.make_image(fill_color="black", back_color="white")
 
     qr_path = (
-        f"{CERTIFICATE_FOLDER}/qr_{inspection_id}.png"
+        f"{QR_FOLDER}/"
+        f"{certificate_number}.png"
     )
 
-    image.save(qr_path)
+    qr.save(qr_path)
 
     return qr_path

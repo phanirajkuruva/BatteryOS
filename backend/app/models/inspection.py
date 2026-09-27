@@ -51,4 +51,8 @@ class Inspection(Base):
     "Attachment",
     back_populates="inspection",
     cascade="all, delete",
-)
+    )
+    certificates = relationship(
+    "Certificate",
+    back_populates="inspection",
+    )

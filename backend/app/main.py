@@ -14,6 +14,7 @@ from backend.app.routers.attachment import router as attachment_router
 from fastapi.staticfiles import StaticFiles
 from backend.app.routers.maintenance import router as maintenance_router
 from backend.app.routers.alerts import router as alert_router
+from backend.app.routers.reports import router as report_router
 app = FastAPI()
 
 
@@ -47,3 +48,4 @@ app.mount(
 )
 app.include_router(maintenance_router)
 app.include_router(alert_router)
+app.include_router(report_router)

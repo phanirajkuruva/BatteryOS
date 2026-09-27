@@ -6,3 +6,4 @@ from backend.app.models.inspection import Inspection
 from backend.app.models.attachment import Attachment
 from backend.app.models.maintenance import Maintenance
 from backend.app.models.alert import Alert
+from backend.app.models.certificate import Certificate
